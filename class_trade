@@ -27,7 +27,7 @@ if (abs(PositionData.PositionQuantity)  < abs(k))
 if (PositionData.PositionQuantity) == 0 && k != 0))
 {
   smer = pos_q / abs(pos_q);
-  float profit = avg_close - avg_open * abs(pos_q);
+  float profit = (avg_close - avg_open) * abs(pos_q);
 }
 
 k = PositionData.PositionQuantity;
