@@ -1,0 +1,6 @@
+class Trade
+{
+  float avg_open, avg_close;
+  int pos_q;
+  
+}
