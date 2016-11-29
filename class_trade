@@ -1,6 +1,33 @@
-class Trade
+sc.updateallways;
+
+persist float avg_open;
+persist float avg_close;
+persist float cena;
+persist int pos_q;
+int k = 0;
+int smer;
+
+cena = sc.LastTradePrice;
+if (PositionData.PositionQuantity  != k)
 {
-  float avg_open, avg_close;
-  int pos_q;
+  pos_q = position_quantity;
   
+
+if (abs(PositionData.PositionQuantity)  > abs(k))
+{  
+  avg_open = PositionData.AveragePrice;
+  pos_q = PositionData.PositionQuantity;
 }
+if (abs(PositionData.PositionQuantity)  < abs(k))
+{
+  avg_close = avg_close + (cena * (abs(k) - abs(PositionData.PositionQuantity)));
+}
+}
+
+if (PositionData.PositionQuantity) == 0 && k != 0))
+{
+  smer = pos_q / abs(pos_q);
+  float profit = avg_open 
+}
+
+k = PositionData.PositionQuantity;
