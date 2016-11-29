@@ -1,3 +1,5 @@
+
+
 SCSFExport scsf_TradeUpload(SCStudyInterfaceRef sc)
 {
 	// Section 1 - Set the configuration variables
@@ -34,33 +36,79 @@ SCSFExport scsf_TradeUpload(SCStudyInterfaceRef sc)
 
 	int& k = sc.GetPersistentInt(0);
 	int& pocet = sc.GetPersistentInt(1);
-	SCDateTime& checktime = sc.GetPersistentSCDateTime(0);
-	int typ;
+	int& SizeTrades = sc.GetPersistentInt(2);
+	int& pos_q = sc.GetPersistentInt(3);
 
+	float& avg_open = sc.GetPersistentFloat(0);
+	float& avg_close = sc.GetPersistentFloat(1);
+	float& cena = sc.GetPersistentFloat(2);
+
+	long long& cas = sc.GetPersistentInt64(0);
+
+	SCDateTime& checktime = sc.GetPersistentSCDateTime(0);
+
+	int typ;
+	float AvgPrice;
 	s_SCPositionData PositionData;
 	sc.GetTradePosition(PositionData);
 	SCDateTime ExitTime;
 	SCDateTime Time;
-	long long& cas = sc.GetPersistentInt64(0);
-	SCString& sac = sc.GetPersistentSCString(0);
-	float AvgPrice;
-	//s_SCTradeOrder Order;
-	
-	if ( PositionData.PositionQuantity == 0  ){
-		if (k!=0){ //konec vstupu - uploaduj result
-			
-			entry[sc.Index] = -1;
-			
 
+
+	//double TotalProfit = 0;
+	//s_SCTradeOrder Order;
+
+
+	cena = sc.LastTradePrice;
+	if (PositionData.PositionQuantity != k)
+	{
+		pos_q = PositionData.PositionQuantity;
+
+
+		if (abs(PositionData.PositionQuantity) > abs(k))
+		{
+			avg_open = PositionData.AveragePrice;
+			pos_q = PositionData.PositionQuantity;
+		}
+		if (abs(PositionData.PositionQuantity) < abs(k))
+		{
+			avg_close = avg_close + (cena * (abs(k) - abs(PositionData.PositionQuantity)));
+		}
+
+	}
+
+
+
+	if (PositionData.PositionQuantity == 0) {
+		if (k != 0) { //konec vstupu - uploaduj result
+
+			//smer = pos_q / abs(pos_q);
+			float profit = (avg_close - avg_open) * abs(pos_q);
+
+			entry[sc.Index] = -1;
+
+			/*
 			std::vector <s_ACSTrade> TradesList;
+
 			s_ACSTrade TradeEntry;
 			int Size = sc.GetTradeListSize();
+			int SizeOd = Size - pocet; //pocet je pocet kliknutych objednavek
 
-			if (sc.GetTradeListEntry(Size - 1, TradeEntry))
-				TradesList.push_back(TradeEntry);
-			
+			for (int Index = SizeTrades; Index < Size; Index++)
+			{
+				if (sc.GetTradeListEntry(Index, TradeEntry))
+					TradesList.push_back(TradeEntry);
+			}
+
+			for (unsigned int TradeIndex = 0; TradeIndex < TradesList.size(); TradeIndex++)
+			{
+				double ProfitLoss = TradesList[TradeIndex].ClosedProfitLoss;
+			}
+
+
+			pocet = 0;
 			// vzsledek
-		
+
 			SCDateTime	CloseDateTime = TradesList[0].CloseDateTime;
 			int	TradeType = TradesList[0].TradeType;
 			int	EntryQuantity = TradesList[0].EntryQuantity;
@@ -75,7 +123,8 @@ SCSFExport scsf_TradeUpload(SCStudyInterfaceRef sc)
 			double	MaximumRunup = TradesList[0].MaximumRunup;
 			double	MaximumDrawdown = TradesList[0].MaximumDrawdown;
 			double	Commission = TradesList[0].Commission;
-			
+			*/
+
 			SCDateTime CheckTime = sc.AdjustDateTimeToGMT(checktime);
 			int ms;
 			struct tm t = { 0 };
@@ -92,8 +141,17 @@ SCSFExport scsf_TradeUpload(SCStudyInterfaceRef sc)
 			std::string timeint = std::to_string(timeSinceEpoch);
 			char const *stime = timeint.c_str();
 
-			std::string pt = std::to_string(ClosedProfitLoss);
+			std::string pt = std::to_string(profit);
 			char const *PT = pt.c_str();
+
+			std::string ks = std::to_string(pos_q);
+			char const *KS = ks.c_str();
+
+			std::string avo = std::to_string(avg_open);
+			char const *AVO = avo.c_str();
+
+			std::string avc = std::to_string(avg_close);
+			char const *AVC = avc.c_str();
 
 
 			CURL *curl;
@@ -108,7 +166,7 @@ SCSFExport scsf_TradeUpload(SCStudyInterfaceRef sc)
 
 			curl_global_init(CURL_GLOBAL_ALL);
 
-		
+
 
 			/* Fill in the submit field too, even if this is rarely needed */
 			curl_formadd(&formpost,
@@ -122,6 +180,27 @@ SCSFExport scsf_TradeUpload(SCStudyInterfaceRef sc)
 				&lastptr,
 				CURLFORM_COPYNAME, "timecheck",
 				CURLFORM_COPYCONTENTS, stime,
+				CURLFORM_END);
+
+			/* Fill in the submit field too, even if this is rarely needed */
+			curl_formadd(&formpost,
+				&lastptr,
+				CURLFORM_COPYNAME, "size",
+				CURLFORM_COPYCONTENTS, KS,
+				CURLFORM_END);
+
+			/* Fill in the submit field too, even if this is rarely needed */
+			curl_formadd(&formpost,
+				&lastptr,
+				CURLFORM_COPYNAME, "avgOpen",
+				CURLFORM_COPYCONTENTS, AVO,
+				CURLFORM_END);
+
+			/* Fill in the submit field too, even if this is rarely needed */
+			curl_formadd(&formpost,
+				&lastptr,
+				CURLFORM_COPYNAME, "avgClose",
+				CURLFORM_COPYCONTENTS, AVC,
 				CURLFORM_END);
 
 			curl = curl_easy_init();
@@ -150,45 +229,57 @@ SCSFExport scsf_TradeUpload(SCStudyInterfaceRef sc)
 				curl_formfree(formpost);
 				/* free slist */
 				curl_slist_free_all(headerlist);
+			
+				
 			}
-
+			//konec tradu vznulovat hodnotz
+			k = 0;
+			avg_close = 0;
+			avg_open = 0;
+			pos_q = 0;
 
 
 
 		}
-		k = 0;
+
 	}
-	
-	if ( PositionData.PositionQuantity != 0 ){
+
+
+
+
+
+	//k = PositionData.PositionQuantity;
+
+	if (PositionData.PositionQuantity == 0)
+		SizeTrades = sc.GetTradeListSize();
+
+	if (PositionData.PositionQuantity != 0) {
 		if (PositionData.PositionQuantity > 0) {
 			typ = 1;
-			if (k != 0 && PositionData.PositionQuantity > k) {
-				pocet++;
-			}
 		}
 		if (PositionData.PositionQuantity < 0) {
 			typ = -1;
-			if (k != 0 && PositionData.PositionQuantity < k) {
-				pocet++;
-			}
 		}
-		if (k==0){ //prvni vstup do obchodu tady provedu upload
-			
+		if (k == 0) { //prvni vstup do obchodu tady provedu upload
+
+			avg_open = PositionData.AveragePrice;
+			pos_q = PositionData.PositionQuantity;
+
 			pocet = 1;
 			int UserID = sc.Input[1].GetInt();
 			//int BarTime = sc.BaseDateTimeIn.TimeAt(sc.Index);
-			
+
 			//Time = Order.EntryDateTime;
-			
+
 			//std::string s = std::to_string(typ);
-			
+
 			AvgPrice = PositionData.AveragePrice;
 			Time = PositionData.LastEntryDateTime;
 			checktime = PositionData.LastEntryDateTime;
 			Time = sc.AdjustDateTimeToGMT(Time);
 			SCString Symbol = PositionData.Symbol;
-			
-			  //std::time_t t = std::time(0);
+
+			//std::time_t t = std::time(0);
 			int ms;
 			struct tm t = { 0 };
 			Time.GetDateTimeYMDHMS_MS(t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec, ms);
@@ -199,116 +290,122 @@ SCSFExport scsf_TradeUpload(SCStudyInterfaceRef sc)
 			t.tm_isdst = -1;
 
 			time_t timeSinceEpoch = mktime(&t);
-			
+
 			//long int timecheck = static_cast<long int> (timeSinceEpoch(NULL));
 			timeSinceEpoch = timeSinceEpoch * 1000 + ms;
-			
-			
+
+
 			entry[sc.Index] = 1;
-			
 
-			
-			
 
-			
-		
-			
 
-			  std::string typeint = std::to_string(typ);
-		  	  char const *stype = typeint.c_str(); 
 
-			  std::string timeint = std::to_string(timeSinceEpoch);
-		  	  char const *stime = timeint.c_str(); 
-		
-			  std::string idint = std::to_string(UserID);
-		  	  char const *sid = idint.c_str(); 
 
-			  std::string avgpr = std::to_string(AvgPrice);
-			  char const *avgprice = avgpr.c_str();
 
-			  std::string sym = Symbol;
-			  char const *Sym = sym.c_str();
 
-			  
 
-			 
-			
-			  CURL *curl;
-			  CURLcode res;
 
-			  //std::string s = std::to_string(42);
+			std::string typeint = std::to_string(typ);
+			char const *stype = typeint.c_str();
 
-			  struct curl_httppost *formpost=NULL;
-			  struct curl_httppost *lastptr=NULL;
-			  struct curl_slist *headerlist=NULL;
-			  static const char buf[] = "Expect:";
- 
-			  curl_global_init(CURL_GLOBAL_ALL);
- 
-			  /* Fill in the filename field */ 
-			  curl_formadd(&formpost,
-						   &lastptr,
-						   CURLFORM_COPYNAME, "userid",
-						   CURLFORM_COPYCONTENTS, sid,
-						   CURLFORM_END);
-			  /* Fill in the filename field */ 
-			  curl_formadd(&formpost,
-						   &lastptr,
-						   CURLFORM_COPYNAME, "time",
-						   CURLFORM_COPYCONTENTS, stime,
-						   CURLFORM_END);
-			  /* Fill in the filename field */ 
-			  curl_formadd(&formpost,
-						   &lastptr,
-						   CURLFORM_COPYNAME, "type",
-						   CURLFORM_COPYCONTENTS, stype  ,
-						   CURLFORM_END);
-			  /* Fill in the submit field too, even if this is rarely needed */
-			  curl_formadd(&formpost,
-						   &lastptr,
-						   CURLFORM_COPYNAME, "price",
-						   CURLFORM_COPYCONTENTS, avgprice,
-						   CURLFORM_END);
-			  /* Fill in the submit field too, even if this is rarely needed */
-			  curl_formadd(&formpost,
-						  &lastptr,
-						  CURLFORM_COPYNAME, "symbol",
-						  CURLFORM_COPYCONTENTS, Sym,
-						  CURLFORM_END);
+			std::string timeint = std::to_string(timeSinceEpoch);
+			char const *stime = timeint.c_str();
 
-			
+			std::string idint = std::to_string(UserID);
+			char const *sid = idint.c_str();
 
-			  curl = curl_easy_init();
-			  /* initialize custom header list (stating that Expect: 100-continue is not
-				 wanted */ 
-			  headerlist = curl_slist_append(headerlist, buf);
-			  if(curl) {
-				/* what URL that receives this POST */ 
+			std::string avgpr = std::to_string(AvgPrice);
+			char const *avgprice = avgpr.c_str();
+
+			std::string sym = Symbol;
+			char const *Sym = sym.c_str();
+
+
+
+
+
+			CURL *curl;
+			CURLcode res;
+
+			//std::string s = std::to_string(42);
+
+			struct curl_httppost *formpost = NULL;
+			struct curl_httppost *lastptr = NULL;
+			struct curl_slist *headerlist = NULL;
+			static const char buf[] = "Expect:";
+
+			curl_global_init(CURL_GLOBAL_ALL);
+
+			/* Fill in the filename field */
+			curl_formadd(&formpost,
+				&lastptr,
+				CURLFORM_COPYNAME, "userid",
+				CURLFORM_COPYCONTENTS, sid,
+				CURLFORM_END);
+			/* Fill in the filename field */
+			curl_formadd(&formpost,
+				&lastptr,
+				CURLFORM_COPYNAME, "time",
+				CURLFORM_COPYCONTENTS, stime,
+				CURLFORM_END);
+			/* Fill in the filename field */
+			curl_formadd(&formpost,
+				&lastptr,
+				CURLFORM_COPYNAME, "type",
+				CURLFORM_COPYCONTENTS, stype,
+				CURLFORM_END);
+			/* Fill in the submit field too, even if this is rarely needed */
+			curl_formadd(&formpost,
+				&lastptr,
+				CURLFORM_COPYNAME, "price",
+				CURLFORM_COPYCONTENTS, avgprice,
+				CURLFORM_END);
+			/* Fill in the submit field too, even if this is rarely needed */
+			curl_formadd(&formpost,
+				&lastptr,
+				CURLFORM_COPYNAME, "symbol",
+				CURLFORM_COPYCONTENTS, Sym,
+				CURLFORM_END);
+
+
+
+			curl = curl_easy_init();
+			/* initialize custom header list (stating that Expect: 100-continue is not
+			   wanted */
+			headerlist = curl_slist_append(headerlist, buf);
+			if (curl) {
+				/* what URL that receives this POST */
 				curl_easy_setopt(curl, CURLOPT_URL, "http://order-flow.cz/webservice.php");
 				//if((argc == 2) && (!strcmp(argv[1], "noexpectheader")))
-				  /* only disable 100-continue header if explicitly requested */ 
-				  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerlist);
+				  /* only disable 100-continue header if explicitly requested */
+				curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerlist);
 				curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
- 
-				/* Perform the request, res will get the return code */ 
+
+				/* Perform the request, res will get the return code */
 				res = curl_easy_perform(curl);
-				/* Check for errors */ 
-				if(res != CURLE_OK)
-				  fprintf(stderr, "curl_easy_perform() failed: %s\n",
-						  curl_easy_strerror(res));
- 
-				/* always cleanup */ 
+				/* Check for errors */
+				if (res != CURLE_OK)
+					fprintf(stderr, "curl_easy_perform() failed: %s\n",
+						curl_easy_strerror(res));
+
+				/* always cleanup */
 				curl_easy_cleanup(curl);
- 
-				/* then cleanup the formpost chain */ 
+
+				/* then cleanup the formpost chain */
 				curl_formfree(formpost);
-				/* free slist */ 
-				curl_slist_free_all (headerlist);
-			  }
-			 
+				/* free slist */
+				curl_slist_free_all(headerlist);
+			}
 
 
-		}	
-		k = PositionData.PositionQuantity;
+
+		}
+		
 	}
+
+	
+	k = PositionData.PositionQuantity;
+	
+
+	
 } 
